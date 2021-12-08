@@ -48,8 +48,21 @@ public:
         }
     }
 
+    void UpdateBest(const vector<int> &features, float acc) {
+        if (acc > accuracy) {
+            accuracy = acc;
+            bestFeatures = features;
+        }
+    }
+
+    void ShiftColumns() {
+        for (int i = 0; i < data.size(); i++) {
+            swap(data[i][0], data[i][data[i].size()-1]);
+        }
+    }
+
     void OutputCurr(const vector<int> &currFeatures, float acc) {
-        cout << "Feature set: [" << currFeatures[0];
+        cout << "[" << currFeatures[0];
         for (int i = 1; i < currFeatures.size(); i++) {
             cout << " " << currFeatures[i];
         }
@@ -87,7 +100,7 @@ public:
     void ForwardSelection() {
         vector<int> currFeatures, bestFeaturesI;
         float bestAcc, currAcc;
-
+        // need to acct for empty set
         for (int i = 1; i < data[0].size(); i++) {
             bestAcc = 0;
             currFeatures.resize(i);
@@ -96,15 +109,11 @@ public:
                     currFeatures[i-1] = j;
                     currAcc = LeaveOneOutCrossValidation(currFeatures);
                     OutputCurr(currFeatures, currAcc);
-                    if (accuracy < currAcc) {
-                        accuracy = currAcc;
-                        bestFeatures = currFeatures;
-                    }
+                    UpdateBest(currFeatures, currAcc);
                     if (currAcc > bestAcc) {
                         bestAcc = currAcc;
                         bestFeaturesI = currFeatures;
                     }
-
                 }
             }
             currFeatures = bestFeaturesI;
@@ -114,10 +123,42 @@ public:
         OutputCurr(bestFeatures, accuracy);
     }
 
-    void BackwardSelection() {
-        vector<int> currFeatures, bestFeatures;
+    void BackwardElimination() {
+        vector<int> currFeatures, bestFeaturesI, allFeatures;
         float currAcc, bestAcc;
-        
+        for (int i = 1; i < data[0].size(); i++) {
+            allFeatures.push_back(i);
+        }
+        currFeatures = allFeatures;
+        currFeatures.pop_back();
+
+        while (!currFeatures.empty()) {
+            int n = allFeatures.size();
+            bestAcc = 0;
+            currFeatures[0] = allFeatures[n-1];
+            currAcc = LeaveOneOutCrossValidation(currFeatures);
+            OutputCurr(currFeatures, currAcc);
+            UpdateBest(currFeatures, currAcc);
+            if (currAcc > bestAcc) {
+                bestAcc = currAcc;
+                bestFeaturesI = currFeatures;
+            }
+            for (int j = n - 1; j > 1; j--) {
+                currFeatures[n-j] = allFeatures[n-j-1];
+                currAcc = LeaveOneOutCrossValidation(currFeatures);
+                OutputCurr(currFeatures, currAcc);
+                UpdateBest(currFeatures, currAcc);
+                if (currAcc > bestAcc) {
+                    bestAcc = currAcc;
+                    bestFeaturesI = currFeatures;
+                }
+            }
+            currFeatures = bestFeaturesI;
+            allFeatures = currFeatures;
+            currFeatures.pop_back();
+        }
+        cout << endl << "Best Features: " << endl;
+        OutputCurr(bestFeatures, accuracy);
     }
 
 private:
@@ -128,14 +169,27 @@ private:
 
 int main() {
     GenerateFeatures *g = new GenerateFeatures;
-    string fileName = "small61.txt";
-    // cout << "Enter name of file: ";
-    // getline(cin, fileName);
+    string fileName = "large81.txt";
+    cout << "Enter name of file: ";
+    getline(cin, fileName);
     if (!g->ReadFile(fileName)) {
         return 0;
     }
     g->NormalizeData();
-    g->ForwardSelection();
+    while (1) {
+        cout << "1) Foward Selection" << endl;
+        cout << "2) Backward Elimination" << endl;
+        cout << "3) Exit" << endl;
+        int choice;
+        cin >> choice;
+        if (choice == 1) {
+            g->ForwardSelection();
+        } else if (choice == 2) {
+            g->BackwardElimination();
+        } else {
+            break;
+        }
+    }
 
     return 0;
 }
