@@ -19,7 +19,7 @@ public:
         vector<double> temp;
         while (fin >> num) {
             temp.push_back(num);
-            if (fin.peek() == '\n') {
+            if (fin.peek() == '\r') {
                 data.push_back(temp);
                 temp.clear();
             }
@@ -36,39 +36,106 @@ public:
                 mean += data[j][i];
             }
             mean /= data.size();
-            // cout << mean << endl;
+
             for (int j = 0; j < data.size(); j++) {
                 dev += pow((data[j][i] - mean), 2);
             }
-            // cout << dev << endl;
             dev = sqrt(dev/(data.size() - 1));
-            // cout << dev << endl;
+
             for (int j = 0; j < data.size(); j++) {
                 data[j][i] = (data[j][i] - mean)/dev;
             }
         }
+    }
+
+    void OutputCurr(const vector<int> &currFeatures, float acc) {
+        cout << "Feature set: [" << currFeatures[0];
+        for (int i = 1; i < currFeatures.size(); i++) {
+            cout << " " << currFeatures[i];
+        }
+        cout << "] => " << acc << endl;
+    }
+
+    float LeaveOneOutCrossValidation(const vector<int> &currFeatures) {
+        float pass = 0;
+        vector<vector<double> > dataCopy;
+        for (int i = 0; i < data.size(); i++) {
+            dataCopy = data;
+            dataCopy.erase(dataCopy.begin() + i);
+
+            float nnDist = 999999;
+            int nnLoc = data.size();
+            for (int j = 0; j < dataCopy.size(); j++) {
+                float dist = 0;
+                for (int k = 0; k < currFeatures.size(); k++) {
+                    dist += (pow(dataCopy[j][currFeatures[k]] - data[i][currFeatures[k]], 2));
+                }
+                dist = sqrt(dist);
+                if (dist < nnDist) {
+                    nnDist = dist;
+                    nnLoc = j;
+                }
+            }
+            int label = dataCopy[nnLoc][0];
+            if (label == data[i][0]) {
+                pass++;
+            }
+        }
+        return pass / data.size();
+    }
+
+    void ForwardSelection() {
+        vector<int> currFeatures, bestFeaturesI;
+        float bestAcc, currAcc;
 
         for (int i = 1; i < data[0].size(); i++) {
-            for (int j = 0; j < data.size(); j++) {
-                cout << data[j][i] << " ";
+            bestAcc = 0;
+            currFeatures.resize(i);
+            for (int j = 1; j < data[0].size(); j++) {
+                if (find(bestFeaturesI.begin(), bestFeaturesI.end(), j) == bestFeaturesI.end()) {
+                    currFeatures[i-1] = j;
+                    currAcc = LeaveOneOutCrossValidation(currFeatures);
+                    OutputCurr(currFeatures, currAcc);
+                    if (accuracy < currAcc) {
+                        accuracy = currAcc;
+                        bestFeatures = currFeatures;
+                    }
+                    if (currAcc > bestAcc) {
+                        bestAcc = currAcc;
+                        bestFeaturesI = currFeatures;
+                    }
+
+                }
             }
-            cout << endl;
+            currFeatures = bestFeaturesI;
         }
+
+        cout << endl << "Best Features: " << endl;
+        OutputCurr(bestFeatures, accuracy);
+    }
+
+    void BackwardSelection() {
+        vector<int> currFeatures, bestFeatures;
+        float currAcc, bestAcc;
+        
     }
 
 private:
     vector<vector<double> > data;
+    vector<int> bestFeatures;
+    float accuracy;
 };
 
 int main() {
     GenerateFeatures *g = new GenerateFeatures;
-    string fileName = "e.txt";
+    string fileName = "small61.txt";
     // cout << "Enter name of file: ";
     // getline(cin, fileName);
     if (!g->ReadFile(fileName)) {
-        cout << "ok";
+        return 0;
     }
     g->NormalizeData();
+    g->ForwardSelection();
 
     return 0;
 }
