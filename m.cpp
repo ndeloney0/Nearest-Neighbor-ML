@@ -1,13 +1,19 @@
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <string>
 #include <vector>
 #include <math.h>
+#include <chrono>
 
+using namespace std::chrono;
 using namespace std;
 
 class GenerateFeatures {
 public:
+    GenerateFeatures() {
+        accuracy = 0;
+    }
     bool ReadFile(string fileName) {
         ifstream fin(fileName);
         if (!fin.is_open()) {
@@ -62,21 +68,26 @@ public:
     }
 
     void OutputCurr(const vector<int> &currFeatures, float acc) {
-        cout << "[" << currFeatures[0];
-        for (int i = 1; i < currFeatures.size(); i++) {
-            cout << " " << currFeatures[i];
+        if (!currFeatures.empty()) {
+            cout << "[" << currFeatures[0];
+            for (int i = 1; i < currFeatures.size(); i++) {
+                cout << " " << currFeatures[i];
+            }
+            cout << "] => " << acc << endl;
+        } else {
+            cout << "Empty set: " << acc << endl;
         }
-        cout << "] => " << acc << endl;
     }
 
     float LeaveOneOutCrossValidation(const vector<int> &currFeatures) {
         float pass = 0;
         vector<vector<double> > dataCopy;
+
         for (int i = 0; i < data.size(); i++) {
             dataCopy = data;
             dataCopy.erase(dataCopy.begin() + i);
 
-            float nnDist = 999999;
+            float nnDist = 2147483647;
             int nnLoc = data.size();
             for (int j = 0; j < dataCopy.size(); j++) {
                 float dist = 0;
@@ -100,7 +111,10 @@ public:
     void ForwardSelection() {
         vector<int> currFeatures, bestFeaturesI;
         float bestAcc, currAcc;
-        // need to acct for empty set
+
+        currAcc = LeaveOneOutCrossValidation(currFeatures);
+        UpdateBest(currFeatures, currAcc);
+        OutputCurr(currFeatures, currAcc);
         for (int i = 1; i < data[0].size(); i++) {
             bestAcc = 0;
             currFeatures.resize(i);
@@ -126,6 +140,7 @@ public:
     void BackwardElimination() {
         vector<int> currFeatures, bestFeaturesI, allFeatures;
         float currAcc, bestAcc;
+        
         for (int i = 1; i < data[0].size(); i++) {
             allFeatures.push_back(i);
         }
@@ -157,6 +172,8 @@ public:
             allFeatures = currFeatures;
             currFeatures.pop_back();
         }
+        currAcc = LeaveOneOutCrossValidation(currFeatures);
+        UpdateBest(currFeatures, currAcc);
         cout << endl << "Best Features: " << endl;
         OutputCurr(bestFeatures, accuracy);
     }
@@ -170,26 +187,57 @@ private:
 int main() {
     GenerateFeatures *g = new GenerateFeatures;
     string fileName = "large81.txt";
-    cout << "Enter name of file: ";
-    getline(cin, fileName);
-    if (!g->ReadFile(fileName)) {
-        return 0;
-    }
+    // cout << "Enter name of file: ";
+    // getline(cin, fileName);
+    // if (!g->ReadFile(fileName)) {
+    //     return 0;
+    // }
+    g->ReadFile("small38.txt");
     g->NormalizeData();
-    while (1) {
-        cout << "1) Foward Selection" << endl;
-        cout << "2) Backward Elimination" << endl;
-        cout << "3) Exit" << endl;
-        int choice;
-        cin >> choice;
-        if (choice == 1) {
-            g->ForwardSelection();
-        } else if (choice == 2) {
-            g->BackwardElimination();
-        } else {
-            break;
-        }
-    }
+    auto start = high_resolution_clock::now();
+    g->ForwardSelection();
+    auto stop = high_resolution_clock::now();
+    double duration = duration_cast<nanoseconds>(stop - start).count();
+    duration *= 1e-9;
+    cout << fixed << "Time taken: " << duration << setprecision(9) << " sec" << endl;
+
+    start = high_resolution_clock::now();
+    g->BackwardElimination();
+    stop = high_resolution_clock::now();
+    duration = duration_cast<nanoseconds>(stop - start).count();
+    duration *= 1e-9;
+    cout << fixed << "Time taken: " << duration << setprecision(9) << " sec" << endl;
+
+    // g->ReadFile("large81.txt");
+    // g->NormalizeData();
+
+    // start = high_resolution_clock::now();
+    // g->ForwardSelection();
+    // duration = duration_cast<nanoseconds>(stop - start).count();
+    // duration *= 1e-9;
+    // cout << fixed << "Time taken: " << duration << setprecision(9) << " sec" << endl;
+
+    // start = high_resolution_clock::now();
+    // g->BackwardElimination();
+    // duration = duration_cast<nanoseconds>(stop - start).count();
+    // duration *= 1e-9;
+    // cout << fixed << "Time taken: " << duration << setprecision(9) << " sec" << endl;
+    // g->ForwardSelection();
+    // while (1) {
+    //     cout << "1) Foward Selection" << endl;
+    //     cout << "2) Backward Elimination" << endl;
+    //     cout << "Else) Exit" << endl;
+    //     int choice;
+    //     cin >> choice;
+    //     if (choice == 1) {
+    //         g->ForwardSelection();
+    //     } else if (choice == 2) {
+    //         g->BackwardElimination();
+    //     } else {
+    //         break;
+    //     }
+    // }
 
     return 0;
 }
+
